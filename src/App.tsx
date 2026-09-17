@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { GameBackground, BackgroundTheme } from './components/GameBackground';
 import { TopBar } from './components/TopBar';
 import { ColoringCanvas } from './components/ColoringCanvas';
@@ -192,7 +193,9 @@ export default function App() {
   };
 
   return (
-    <GameBackground theme={backgroundTheme}>
+    <>
+      <SpeedInsights />
+      <GameBackground theme={backgroundTheme}>
       {/* Top Bar matching screenshot */}
       <TopBar
         progressPercent={progressPercent}
@@ -265,6 +268,7 @@ export default function App() {
         onClose={() => setIsLevelSelectOpen(false)}
         completedLevelIds={completedLevelIds}
       />
-    </GameBackground>
+      </GameBackground>
+    </>
   );
 }
