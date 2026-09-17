@@ -1,0 +1,6 @@
+{
+  "name": "Color By Number",
+  "description": "A delightful color-by-number painting game with interactive palettes, multiple artwork levels, and rewarding completion animations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
