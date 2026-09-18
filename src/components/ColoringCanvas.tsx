@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ColoringLevel, ColorItem } from '../types';
 import { sound } from '../utils/audio';
 
@@ -10,6 +10,7 @@ interface ColoringCanvasProps {
   onSelectColor: (colorId: number) => void;
   highlightedNumber?: number | null;
   wrongRegionId?: string | null;
+  palette?: ColorItem[];
 }
 
 interface Sparkle {
@@ -27,49 +28,63 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
   onSelectColor,
   highlightedNumber,
   wrongRegionId,
+  palette,
 }) => {
+  const activePalette = palette || level.palette;
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const isPointerDownRef = useRef(false);
 
-  const handleRegionClick = (regionId: string, regionNumber: number, labelX: number, labelY: number) => {
-    const isAlreadyColored = coloredRegions.has(regionId);
+  // Global pointer up listener to cleanly stop drag-coloring
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      isPointerDownRef.current = false;
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+    };
+  }, []);
+
+  const handlePaintRegion = (
+    regionId: string,
+    regionNumber: number,
+    labelX: number,
+    labelY: number
+  ) => {
     const currentColorOfRegion = coloredRegions.get(regionId);
 
-    // If matching active color
-    if (selectedColorId === regionNumber) {
-      if (currentColorOfRegion === selectedColorId) {
-        // already this color
-        sound.playPop();
-        return;
-      }
-
-      // Fill the region!
-      onRegionColored(regionId, selectedColorId);
-      sound.playSplash();
-
-      // Trigger sparkle effect
-      const paletteColor = level.palette.find(c => c.id === selectedColorId)?.hex || '#FFD700';
-      const newSparkles: Sparkle[] = Array.from({ length: 6 }).map((_, i) => ({
-        id: Date.now() + i,
-        x: labelX + (Math.random() - 0.5) * 40,
-        y: labelY + (Math.random() - 0.5) * 40,
-        color: paletteColor,
-      }));
-      setSparkles(prev => [...prev, ...newSparkles]);
-      setTimeout(() => {
-        setSparkles(prev => prev.filter(s => !newSparkles.find(ns => ns.id === s.id)));
-      }, 700);
-    } else {
-      // User tapped a region with a different number
-      // Auto-switch to that color or give friendly feedback
-      sound.playWrong();
-      onSelectColor(regionNumber);
+    // If region is already this exact color, avoid redundant re-triggers
+    if (currentColorOfRegion === selectedColorId) {
+      return;
     }
+
+    // Color the region with the active selected color
+    onRegionColored(regionId, selectedColorId);
+    sound.playSplash();
+
+    // Trigger celebratory sparkles
+    const chosenColor = activePalette.find(c => c.id === selectedColorId)?.hex || '#FFD700';
+    const isMatch = selectedColorId === regionNumber;
+
+    const newSparkles: Sparkle[] = Array.from({ length: isMatch ? 8 : 4 }).map((_, i) => ({
+      id: Date.now() + i,
+      x: labelX + (Math.random() - 0.5) * 45,
+      y: labelY + (Math.random() - 0.5) * 45,
+      color: chosenColor,
+    }));
+
+    setSparkles(prev => [...prev, ...newSparkles]);
+    setTimeout(() => {
+      setSparkles(prev => prev.filter(s => !newSparkles.find(ns => ns.id === s.id)));
+    }, 700);
   };
 
   const getRegionFill = (regionId: string) => {
     const colorId = coloredRegions.get(regionId);
     if (colorId !== undefined) {
-      const color = level.palette.find(c => c.id === colorId);
+      const color = activePalette.find(c => c.id === colorId);
       return color ? color.hex : '#FFFFFF';
     }
     return '#fdfcf9'; // clean uncolored paper
@@ -84,8 +99,11 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
       >
         <svg
           viewBox={`0 0 ${level.width} ${level.height}`}
-          className="w-full h-full block"
-          style={{ touchAction: 'manipulation' }}
+          className="w-full h-full block cursor-crosshair"
+          style={{ touchAction: 'none' }}
+          onPointerDown={() => {
+            isPointerDownRef.current = true;
+          }}
         >
           {/* Subtle paper texture overlay */}
           <rect width={level.width} height={level.height} fill="#fdfbf7" />
@@ -100,7 +118,7 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
 
             return (
               <g key={region.id} className={isShaking ? 'animate-wiggle' : ''}>
-                {/* Clickable vector path */}
+                {/* Clickable and swipe-paintable vector path */}
                 <path
                   id={`region-${region.id}`}
                   d={region.path}
@@ -109,9 +127,17 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
                   strokeWidth="3.2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  onClick={() => handleRegionClick(region.id, region.number, region.labelX, region.labelY)}
-                  className={`cursor-pointer transition-colors duration-250 ease-out
-                    ${!isColored ? 'hover:brightness-95' : 'hover:brightness-105'}
+                  onPointerDown={(e) => {
+                    isPointerDownRef.current = true;
+                    handlePaintRegion(region.id, region.number, region.labelX, region.labelY);
+                  }}
+                  onPointerEnter={(e) => {
+                    if (isPointerDownRef.current) {
+                      handlePaintRegion(region.id, region.number, region.labelX, region.labelY);
+                    }
+                  }}
+                  className={`cursor-pointer transition-colors duration-200 ease-out
+                    ${!isColored ? 'hover:brightness-95 active:brightness-90' : 'hover:brightness-105'}
                   `}
                   style={{
                     filter: isTargetHint && !isColored 

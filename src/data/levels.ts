@@ -1,6 +1,7 @@
 import { ColoringLevel, ColorItem } from '../types';
 
 export const STANDARD_PALETTE: ColorItem[] = [
+  // Group 1: Classic Colors (1 - 10)
   { id: 1, name: 'White', hex: '#FFFFFF', textColor: '#263238' },
   { id: 2, name: 'Black', hex: '#1E1E24', textColor: '#FFFFFF' },
   { id: 3, name: 'Yellow', hex: '#FFC107', textColor: '#263238' },
@@ -11,6 +12,30 @@ export const STANDARD_PALETTE: ColorItem[] = [
   { id: 8, name: 'Purple', hex: '#8E24AA', textColor: '#FFFFFF' },
   { id: 9, name: 'Brown', hex: '#6D4C41', textColor: '#FFFFFF' },
   { id: 10, name: 'Sky Blue', hex: '#90CAF9', textColor: '#263238' },
+
+  // Group 2: Vibrant Neons & Jewel Tones (11 - 20)
+  { id: 11, name: 'Hot Pink', hex: '#FF4081', textColor: '#FFFFFF' },
+  { id: 12, name: 'Lime Green', hex: '#76FF03', textColor: '#263238' },
+  { id: 13, name: 'Cyan Teal', hex: '#00E5FF', textColor: '#263238' },
+  { id: 14, name: 'Lavender', hex: '#B388FF', textColor: '#263238' },
+  { id: 15, name: 'Coral Peach', hex: '#FF7043', textColor: '#FFFFFF' },
+  { id: 16, name: 'Golden Amber', hex: '#FFD700', textColor: '#263238' },
+  { id: 17, name: 'Mint Green', hex: '#69F0AE', textColor: '#263238' },
+  { id: 18, name: 'Fuchsia Magenta', hex: '#E040FB', textColor: '#FFFFFF' },
+  { id: 19, name: 'Crimson Wine', hex: '#B71C1C', textColor: '#FFFFFF' },
+  { id: 20, name: 'Deep Indigo', hex: '#3D5AFE', textColor: '#FFFFFF' },
+
+  // Group 3: Soft Pastels & Deep Tones (21 - 30)
+  { id: 21, name: 'Soft Cream', hex: '#FFF9C4', textColor: '#263238' },
+  { id: 22, name: 'Baby Pink', hex: '#F8BBD0', textColor: '#263238' },
+  { id: 23, name: 'Aqua Ice', hex: '#E0F7FA', textColor: '#263238' },
+  { id: 24, name: 'Lilac', hex: '#E1BEE7', textColor: '#263238' },
+  { id: 25, name: 'Sunset Bronze', hex: '#D84315', textColor: '#FFFFFF' },
+  { id: 26, name: 'Forest Green', hex: '#1B5E20', textColor: '#FFFFFF' },
+  { id: 27, name: 'Midnight Navy', hex: '#0D47A1', textColor: '#FFFFFF' },
+  { id: 28, name: 'Warm Chocolate', hex: '#4E342E', textColor: '#FFFFFF' },
+  { id: 29, name: 'Silver Gray', hex: '#B0BEC5', textColor: '#263238' },
+  { id: 30, name: 'Sunshine Gold', hex: '#FFEA00', textColor: '#263238' },
 ];
 
 export const LEVELS: ColoringLevel[] = [

@@ -178,7 +178,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           textShadow: '0 2px 4px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.4)',
         }}
       >
-        Color the picture according to the numbers
+        Choose your colors & paint your masterpiece!
       </h1>
     </header>
   );

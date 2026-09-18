@@ -12,6 +12,7 @@ import { PauseModal } from './components/PauseModal';
 import { VictoryModal } from './components/VictoryModal';
 import { LevelSelectModal } from './components/LevelSelectModal';
 import { LEVELS } from './data/levels';
+import { ColorItem } from './types';
 import { sound } from './utils/audio';
 
 export default function App() {
@@ -24,11 +25,38 @@ export default function App() {
   // Map of regionId -> colorId that has been colored
   const [coloredRegions, setColoredRegions] = useState<Map<string, number>>(() => new Map());
 
-  // Currently selected color (Defaults to 6 as in screenshot)
+  // User-added custom colors
+  const [customColors, setCustomColors] = useState<ColorItem[]>([]);
+
+  // Combined full palette including standard and user-added colors
+  const fullPalette = useMemo(() => {
+    return [...currentLevel.palette, ...customColors];
+  }, [currentLevel.palette, customColors]);
+
+  // Currently selected color (Defaults to 6)
   const [selectedColorId, setSelectedColorId] = useState<number>(6);
 
-  // Hand guide pointing to color button (shown on start just like in screenshot)
-  const [showHandGuide, setShowHandGuide] = useState<boolean>(true);
+  // Add a user custom color
+  const handleAddCustomColor = useCallback((hex: string, name: string) => {
+    // Pick next available id
+    const nextId = 30 + customColors.length + 1;
+    // Calculate contrast text color based on luminance
+    const r = parseInt(hex.slice(1, 3), 16) || 0;
+    const g = parseInt(hex.slice(3, 5), 16) || 0;
+    const b = parseInt(hex.slice(5, 7), 16) || 0;
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    const textColor = luminance > 0.6 ? '#263238' : '#FFFFFF';
+
+    const newColor: ColorItem = {
+      id: nextId,
+      name,
+      hex,
+      textColor,
+    };
+
+    setCustomColors(prev => [...prev, newColor]);
+    setSelectedColorId(nextId);
+  }, [customColors.length]);
 
   // Game UI state
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -99,9 +127,6 @@ export default function App() {
 
   // Handle region colored
   const handleRegionColored = (regionId: string, colorId: number) => {
-    if (showHandGuide) {
-      setShowHandGuide(false);
-    }
     if (highlightedNumber) {
       setHighlightedNumber(null);
     }
@@ -131,9 +156,6 @@ export default function App() {
   // Select color
   const handleSelectColor = (colorId: number) => {
     setSelectedColorId(colorId);
-    if (showHandGuide) {
-      setShowHandGuide(false);
-    }
     if (highlightedNumber && highlightedNumber !== colorId) {
       setHighlightedNumber(null);
     }
@@ -215,15 +237,16 @@ export default function App() {
         onRegionColored={handleRegionColored}
         onSelectColor={handleSelectColor}
         highlightedNumber={highlightedNumber}
+        palette={fullPalette}
       />
 
-      {/* Bottom Color Palette Tray matching screenshot */}
+      {/* Bottom Color Palette Tray with expanded colors & custom picker */}
       <ColorTray
-        palette={currentLevel.palette}
+        palette={fullPalette}
         selectedColorId={selectedColorId}
         onSelectColor={handleSelectColor}
         completedNumbers={completedNumbers}
-        showHandGuide={showHandGuide}
+        onAddCustomColor={handleAddCustomColor}
       />
 
       {/* Pause Dialog Modal */}
