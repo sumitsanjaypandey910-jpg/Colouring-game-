@@ -12,7 +12,6 @@ import { PauseModal } from './components/PauseModal';
 import { VictoryModal } from './components/VictoryModal';
 import { LevelSelectModal } from './components/LevelSelectModal';
 import { LEVELS } from './data/levels';
-import { ColorItem } from './types';
 import { sound } from './utils/audio';
 
 export default function App() {
@@ -25,38 +24,8 @@ export default function App() {
   // Map of regionId -> colorId that has been colored
   const [coloredRegions, setColoredRegions] = useState<Map<string, number>>(() => new Map());
 
-  // User-added custom colors
-  const [customColors, setCustomColors] = useState<ColorItem[]>([]);
-
-  // Combined full palette including standard and user-added colors
-  const fullPalette = useMemo(() => {
-    return [...currentLevel.palette, ...customColors];
-  }, [currentLevel.palette, customColors]);
-
-  // Currently selected color (Defaults to 6)
+  // Currently selected color (Defaults to first uncolored region's number, or 6)
   const [selectedColorId, setSelectedColorId] = useState<number>(6);
-
-  // Add a user custom color
-  const handleAddCustomColor = useCallback((hex: string, name: string) => {
-    // Pick next available id
-    const nextId = 30 + customColors.length + 1;
-    // Calculate contrast text color based on luminance
-    const r = parseInt(hex.slice(1, 3), 16) || 0;
-    const g = parseInt(hex.slice(3, 5), 16) || 0;
-    const b = parseInt(hex.slice(5, 7), 16) || 0;
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    const textColor = luminance > 0.6 ? '#263238' : '#FFFFFF';
-
-    const newColor: ColorItem = {
-      id: nextId,
-      name,
-      hex,
-      textColor,
-    };
-
-    setCustomColors(prev => [...prev, newColor]);
-    setSelectedColorId(nextId);
-  }, [customColors.length]);
 
   // Game UI state
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -120,25 +89,37 @@ export default function App() {
     return done;
   }, [currentLevel, coloredRegions]);
 
+  // Auto-advance active color when the selected color completes, to prevent coloring with completed colors
+  useEffect(() => {
+    if (completedNumbers.has(selectedColorId)) {
+      const nextIncomplete = currentLevel.regions.find(r => !coloredRegions.has(r.id));
+      if (nextIncomplete && nextIncomplete.number !== selectedColorId) {
+        setSelectedColorId(nextIncomplete.number);
+      }
+    }
+  }, [completedNumbers, selectedColorId, currentLevel, coloredRegions]);
+
   // Progress percentage
   const totalRegions = currentLevel.regions.length;
   const coloredCount = coloredRegions.size;
   const progressPercent = totalRegions > 0 ? (coloredCount / totalRegions) * 100 : 0;
 
-  // Handle region colored
+  // Handle region colored: restricts adding same color or coloring twice
   const handleRegionColored = (regionId: string, colorId: number) => {
+    // Restrict players from coloring an already colored region twice
+    if (coloredRegions.has(regionId)) {
+      return;
+    }
+
     if (highlightedNumber) {
       setHighlightedNumber(null);
     }
 
     setColoredRegions(prev => {
+      if (prev.has(regionId)) return prev;
       const next = new Map(prev);
-      const isNew = !next.has(regionId);
       next.set(regionId, colorId);
-
-      if (isNew) {
-        setScore(s => s + 20);
-      }
+      setScore(s => s + 20);
 
       // Check if this finishes the picture
       if (next.size === currentLevel.regions.length) {
@@ -153,8 +134,12 @@ export default function App() {
     });
   };
 
-  // Select color
+  // Select color: allows selecting in any order, but restricts selecting already completed colors
   const handleSelectColor = (colorId: number) => {
+    if (completedNumbers.has(colorId)) {
+      sound.playBoop();
+      return;
+    }
     setSelectedColorId(colorId);
     if (highlightedNumber && highlightedNumber !== colorId) {
       setHighlightedNumber(null);
@@ -190,6 +175,10 @@ export default function App() {
     setTimeSpent(0);
     setIsPaused(false);
     setIsVictory(false);
+    const firstRegion = currentLevel.regions[0];
+    if (firstRegion) {
+      setSelectedColorId(firstRegion.number);
+    }
   };
 
   // Switch level
@@ -201,7 +190,6 @@ export default function App() {
       setTimeSpent(0);
       setIsPaused(false);
       setIsVictory(false);
-      // Select first uncolored color or default to first region's number
       const firstNum = LEVELS[idx].regions[0]?.number || 1;
       setSelectedColorId(firstNum);
     }
@@ -215,7 +203,7 @@ export default function App() {
 
   return (
     <GameBackground theme={backgroundTheme}>
-      {/* Top Bar matching screenshot */}
+      {/* Top Bar matching classic game layout */}
       <TopBar
         progressPercent={progressPercent}
         score={score}
@@ -229,7 +217,7 @@ export default function App() {
         onCycleTheme={handleCycleTheme}
       />
 
-      {/* Main Coloring Canvas matching screenshot */}
+      {/* Main Coloring Canvas: single-tap coloring, no double tap */}
       <ColoringCanvas
         level={currentLevel}
         coloredRegions={coloredRegions}
@@ -237,16 +225,16 @@ export default function App() {
         onRegionColored={handleRegionColored}
         onSelectColor={handleSelectColor}
         highlightedNumber={highlightedNumber}
-        palette={fullPalette}
+        palette={currentLevel.palette}
+        completedNumbers={completedNumbers}
       />
 
-      {/* Bottom Color Palette Tray with expanded colors & custom picker */}
+      {/* Bottom Color Palette Tray: 10 authentic colors, disabled when completed */}
       <ColorTray
-        palette={fullPalette}
+        palette={currentLevel.palette}
         selectedColorId={selectedColorId}
         onSelectColor={handleSelectColor}
         completedNumbers={completedNumbers}
-        onAddCustomColor={handleAddCustomColor}
       />
 
       {/* Pause Dialog Modal */}

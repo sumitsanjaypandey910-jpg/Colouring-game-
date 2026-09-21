@@ -83,6 +83,11 @@ class SoundController {
     }
   }
 
+  // Gentle soft boop when tapping a locked/completed or restricted element
+  playBoop() {
+    this.playWrong();
+  }
+
   // Gentle soft boop when tapping the wrong number or non-matching region
   playWrong() {
     if (!this.enabled) return;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { ColoringLevel, ColorItem } from '../types';
 import { sound } from '../utils/audio';
 
@@ -11,6 +11,7 @@ interface ColoringCanvasProps {
   highlightedNumber?: number | null;
   wrongRegionId?: string | null;
   palette?: ColorItem[];
+  completedNumbers?: Set<number>;
 }
 
 interface Sparkle {
@@ -29,46 +30,44 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
   highlightedNumber,
   wrongRegionId,
   palette,
+  completedNumbers,
 }) => {
   const activePalette = palette || level.palette;
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
-  const isPointerDownRef = useRef(false);
 
-  // Global pointer up listener to cleanly stop drag-coloring
-  useEffect(() => {
-    const handleGlobalPointerUp = () => {
-      isPointerDownRef.current = false;
-    };
-    window.addEventListener('pointerup', handleGlobalPointerUp);
-    window.addEventListener('pointercancel', handleGlobalPointerUp);
-    return () => {
-      window.removeEventListener('pointerup', handleGlobalPointerUp);
-      window.removeEventListener('pointercancel', handleGlobalPointerUp);
-    };
-  }, []);
-
+  // Paint a region on a single tap or click
   const handlePaintRegion = (
     regionId: string,
     regionNumber: number,
     labelX: number,
     labelY: number
   ) => {
-    const currentColorOfRegion = coloredRegions.get(regionId);
-
-    // If region is already this exact color, avoid redundant re-triggers
-    if (currentColorOfRegion === selectedColorId) {
+    // 1. Restrict players from adding same color twice:
+    // Once a region has been colored, it cannot be colored again!
+    if (coloredRegions.has(regionId)) {
       return;
     }
 
-    // Color the region with the active selected color
-    onRegionColored(regionId, selectedColorId);
+    // 2. Restrict players from adding a color if that color is already completed
+    if (completedNumbers?.has(regionNumber)) {
+      sound.playBoop();
+      return;
+    }
+
+    // 3. Player can not only add colours in number sequence:
+    // Any available color or region can be colored in any order!
+    // If the active color is different, synchronize selected color to this region's number
+    if (selectedColorId !== regionNumber) {
+      onSelectColor(regionNumber);
+    }
+
+    // 4. Color the region immediately with a single tap
+    onRegionColored(regionId, regionNumber);
     sound.playSplash();
 
-    // Trigger celebratory sparkles
-    const chosenColor = activePalette.find(c => c.id === selectedColorId)?.hex || '#FFD700';
-    const isMatch = selectedColorId === regionNumber;
-
-    const newSparkles: Sparkle[] = Array.from({ length: isMatch ? 8 : 4 }).map((_, i) => ({
+    // 5. Celebration burst
+    const chosenColor = activePalette.find(c => c.id === regionNumber)?.hex || '#FFD700';
+    const newSparkles: Sparkle[] = Array.from({ length: 6 }).map((_, i) => ({
       id: Date.now() + i,
       x: labelX + (Math.random() - 0.5) * 45,
       y: labelY + (Math.random() - 0.5) * 45,
@@ -78,7 +77,7 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
     setSparkles(prev => [...prev, ...newSparkles]);
     setTimeout(() => {
       setSparkles(prev => prev.filter(s => !newSparkles.find(ns => ns.id === s.id)));
-    }, 700);
+    }, 650);
   };
 
   const getRegionFill = (regionId: string) => {
@@ -92,18 +91,15 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
 
   return (
     <div className="w-full flex items-center justify-center my-auto py-1 sm:py-2">
-      {/* Paper Card Frame with Crisp Border, Ambient Glow, and Noticeably Bigger Size */}
+      {/* Paper Card Frame with Crisp Border, Ambient Glow */}
       <div 
         id="coloring-paper-card"
         className="relative w-full max-w-[430px] sm:max-w-[475px] aspect-[400/420] bg-[#fdfcf9] rounded-2xl overflow-hidden shadow-[0_16px_36px_rgba(0,0,0,0.35),0_4px_12px_rgba(0,0,0,0.2)] border-[3.5px] border-[#221f1d] select-none transition-all duration-300 ring-4 ring-white/30"
       >
         <svg
           viewBox={`0 0 ${level.width} ${level.height}`}
-          className="w-full h-full block cursor-crosshair"
-          style={{ touchAction: 'none' }}
-          onPointerDown={() => {
-            isPointerDownRef.current = true;
-          }}
+          className="w-full h-full block"
+          style={{ touchAction: 'manipulation' }}
         >
           {/* Subtle paper texture overlay */}
           <rect width={level.width} height={level.height} fill="#fdfbf7" />
@@ -118,7 +114,7 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
 
             return (
               <g key={region.id} className={isShaking ? 'animate-wiggle' : ''}>
-                {/* Clickable and swipe-paintable vector path */}
+                {/* Single-tap clickable vector path (no double tap required) */}
                 <path
                   id={`region-${region.id}`}
                   d={region.path}
@@ -127,19 +123,18 @@ export const ColoringCanvas: React.FC<ColoringCanvasProps> = ({
                   strokeWidth="3.2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  onPointerDown={(e) => {
-                    isPointerDownRef.current = true;
+                  onClick={(e) => {
+                    e.preventDefault();
                     handlePaintRegion(region.id, region.number, region.labelX, region.labelY);
                   }}
-                  onPointerEnter={(e) => {
-                    if (isPointerDownRef.current) {
-                      handlePaintRegion(region.id, region.number, region.labelX, region.labelY);
+                  className={`transition-colors duration-200 ease-out select-none
+                    ${!isColored 
+                      ? 'cursor-pointer hover:brightness-95 active:scale-[0.99] active:brightness-90' 
+                      : 'cursor-default'
                     }
-                  }}
-                  className={`cursor-pointer transition-colors duration-200 ease-out
-                    ${!isColored ? 'hover:brightness-95 active:brightness-90' : 'hover:brightness-105'}
                   `}
                   style={{
+                    touchAction: 'manipulation',
                     filter: isTargetHint && !isColored 
                       ? 'drop-shadow(0 0 8px rgba(255, 193, 7, 0.95))' 
                       : isMatchingActive && !isColored 
